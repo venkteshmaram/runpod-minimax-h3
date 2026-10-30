@@ -722,9 +722,30 @@ async def _queue_and_wait(prompt):
 
 
 def _s3_cfg(job):
+    """Resolve per-job S3 settings first, then fall back to Cloudflare R2 env vars."""
     cfg = job.get("s3Config") or (job.get("input") or {}).get("s3Config")
     if isinstance(cfg, dict) and cfg.get("endpointUrl") and cfg.get("accessId"):
         return cfg
+
+    account_id = os.environ.get("R2_ACCOUNT_ID")
+    endpoint = os.environ.get("R2_ENDPOINT")
+
+    if not endpoint and account_id:
+        endpoint = f"https://{account_id}.r2.cloudflarestorage.com"
+
+    access_key = os.environ.get("R2_ACCESS_KEY_ID")
+    secret_key = os.environ.get("R2_SECRET_ACCESS_KEY")
+    bucket = os.environ.get("R2_BUCKET_NAME")
+
+    if all([endpoint, access_key, secret_key, bucket]):
+        return {
+            "endpointUrl": endpoint,
+            "accessId": access_key,
+            "accessSecret": secret_key,
+            "bucketName": bucket,
+            "region": "auto",
+        }
+
     return None
 
 
